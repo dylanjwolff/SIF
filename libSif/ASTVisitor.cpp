@@ -1,11 +1,25 @@
 #include "ASTVisitor.hpp"
+#include <spot/tl/parse.hh>
+#include <spot/tl/print.hh>
+#include <spot/tl/parse.hh>
+#include <spot/twaalgos/translate.hh>
+#include <spot/twaalgos/hoa.hh>
 
 namespace Sif
 {
+    std::string fn_name;
 
     void before(std::string arg)
     {
-        return;
+        spot::parsed_formula pf = spot::parse_infix_psl("!F(red & X(yellow))");
+        if (pf.format_errors(std::cerr))
+            std::cout << "ERROR";
+        spot::translator trans;
+        trans.set_type(spot::postprocessor::Monitor);
+        trans.set_pref(spot::postprocessor::Deterministic);
+        spot::twa_graph_ptr aut = trans.run(pf.f);
+        aut->edge_data(0.);
+        print_hoa(std::cout, aut) << '\n';
     }
 
     void visit(ASTNode *node)
@@ -27,7 +41,14 @@ namespace Sif
         else if (node->get_node_type() == NodeTypeFunctionDefinition)
         {
             FunctionDefinitionNode *fd = (FunctionDefinitionNode *)node;
-            std::cout << "FN: " << fd->get_name() << "\n";
+            fn_name = fd->get_name();
+            if (fd->function_is_constructor())
+            {
+                fn_name = "constructor";
+            }
+
+            fd->get_params();
+
             BlockNodePtr block = fd->get_function_body();
 
             if (block != nullptr)
@@ -36,11 +57,11 @@ namespace Sif
                 ASTNodePtr last = block->get_statement(block->num_statements() - 1);
                 if (first != nullptr)
                 {
-                    first->insert_text_before("B4F");
+                    first->insert_text_before("B4F" + fn_name);
                 }
                 if (last != nullptr)
                 {
-                    last->insert_text_after("AFL");
+                    last->insert_text_after("AFL" + fn_name);
                 }
             }
         }
